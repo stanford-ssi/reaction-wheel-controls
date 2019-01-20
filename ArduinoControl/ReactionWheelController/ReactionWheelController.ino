@@ -6,6 +6,16 @@
 // for both classes must be in the include path of your project
 #include "I2Cdev.h"
 
+// Servo.h for motor
+#include "Servo.h"
+int inputMin = 1150; //minimum input at which motor will start spinning
+int inputMax = 2000; //maximum input for motor
+int pin = 9;
+int motorInput = 0;
+Servo motor;
+double kP, kI;
+double setpoint; //angle
+
 #include "MPU6050_6Axis_MotionApps20.h"
 //#include "MPU6050.h" // not necessary if using MotionApps include file
 
@@ -162,6 +172,12 @@ void setup() {
 
     // configure LED for output
     pinMode(LED_PIN, OUTPUT);
+
+
+    //MOTOR SETUP
+    motor.attach(9);
+    motor.writeMicroseconds(300);
+    delay(3000);
 }
 
 
@@ -171,6 +187,7 @@ void setup() {
 // ================================================================
 
 void loop() {
+    
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
 
@@ -224,11 +241,14 @@ void loop() {
             mpu.dmpGetGravity(&gravity, &q);
             mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
             Serial.print("ypr\t");
-            Serial.print(ypr[0] * 180/M_PI);
+            float ypr0 = ypr[0];
+            Serial.print(ypr0 * 180/M_PI);
             Serial.print("\t");
-            Serial.print(ypr[1] * 180/M_PI);
+            float ypr1 = ypr[1];
+            Serial.print(ypr1 * 180/M_PI);
             Serial.print("\t");
-            Serial.println(ypr[2] * 180/M_PI);
+            float ypr2 = ypr[2];
+            Serial.println(ypr2 * 180/M_PI);
         #endif
 
         #ifdef OUTPUT_READABLE_REALACCEL
@@ -248,5 +268,9 @@ void loop() {
         // blink LED to indicate activity
         blinkState = !blinkState;
         digitalWrite(LED_PIN, blinkState);
+
+        motorInput = map(ypr0, -M_PI, M_PI, inputMin, inputMax);
+        Serial.print("Motor set to: "); Serial.println(motorInput);
+        motor.writeMicroseconds(motorInput);
     }
 }
