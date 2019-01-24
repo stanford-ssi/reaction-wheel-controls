@@ -273,4 +273,5 @@ void loop() {
         Serial.print("Motor set to: "); Serial.println(motorInput);
         motor.writeMicroseconds(motorInput);
     }
+    //THIS IS A CHANGE BY TAKAO
 }
