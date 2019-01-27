@@ -191,7 +191,7 @@ float oppSetpoint;
 float error;
 
 //PID constants
-float kP = 0.2;
+float kP = 0.01;
 float kD = 0.0;
 
 
