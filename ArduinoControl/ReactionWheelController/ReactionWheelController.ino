@@ -10,11 +10,9 @@
 #include "Servo.h"
 int inputMin = 1150; //minimum input at which motor will start spinning
 int inputMax = 2000; //maximum input for motor
+int inputMid = (inputMin + inputMax) / 2;
 int pin = 9;
-int motorInput = 0;
 Servo motor;
-double kP, kI;
-double setpoint; //angle
 
 #include "MPU6050_6Axis_MotionApps20.h"
 //#include "MPU6050.h" // not necessary if using MotionApps include file
@@ -186,6 +184,18 @@ void setup() {
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
 
+
+//Control variables
+float originalSetpoint;
+float oppSetpoint;
+float error;
+
+//PID constants
+float kP = 0.2;
+float kD = 0.0;
+
+
+
 void loop() {
     
     // if programming failed, don't try to do anything
@@ -235,21 +245,51 @@ void loop() {
         // (this lets us immediately read more without waiting for an interrupt)
         fifoCount -= packetSize;
         
-        #ifdef OUTPUT_READABLE_YAWPITCHROLL
-            // display Euler angles in degrees
-            mpu.dmpGetQuaternion(&q, fifoBuffer);
-            mpu.dmpGetGravity(&gravity, &q);
-            mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-            Serial.print("ypr\t");
-            float ypr0 = ypr[0];
-            Serial.print(ypr0 * 180/M_PI);
-            Serial.print("\t");
-            float ypr1 = ypr[1];
-            Serial.print(ypr1 * 180/M_PI);
-            Serial.print("\t");
-            float ypr2 = ypr[2];
-            Serial.println(ypr2 * 180/M_PI);
-        #endif
+        // display Euler angles in degrees
+        mpu.dmpGetQuaternion(&q, fifoBuffer);
+        mpu.dmpGetGravity(&gravity, &q);
+        mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+        float currentAngle = ypr[0] * 180/M_PI;
+        Serial.print("Angle: "); Serial.println(currentAngle);
+
+
+
+        //Control Logic:
+
+        //read new delta from Serial
+        if (Serial.available()) {
+          float delta = Serial.parseFloat();
+          originalSetpoint = currentAngle + delta;
+          oppSetpoint = originalSetpoint + copysign(1, originalSetpoint) * -360;
+  
+          error = delta;
+        }
+
+        //calculate two potential setpoints
+        float e1 = originalSetpoint - currentAngle;
+        float e2 = oppSetpoint - currentAngle;
+
+        //find closest setpoint
+        float newError;
+        if (abs(e1) < abs(e2)) {
+          newError = e1;
+        } else {
+          newError = e2;
+        }
+
+        //assuming dt is constant 
+        //TODO add timing
+        float dError = error - newError;
+        
+        error = newError;
+
+        int motorInput = inputMid + ((int) round(kP * error - kD * dError));
+        Serial.print("Error: "); Serial.print(error);
+        Serial.print("\tdError: "); Serial.print(dError);
+        Serial.print("\tMotor Input: "); Serial.println(motorInput);
+        
+        //motor.writeMicroseconds(motorInput);
+        
 
         #ifdef OUTPUT_READABLE_REALACCEL
             // display real acceleration, adjusted to remove gravity
@@ -268,10 +308,5 @@ void loop() {
         // blink LED to indicate activity
         blinkState = !blinkState;
         digitalWrite(LED_PIN, blinkState);
-
-        motorInput = map(ypr0, -M_PI, M_PI, inputMin, inputMax);
-        Serial.print("Motor set to: "); Serial.println(motorInput);
-        motor.writeMicroseconds(motorInput);
     }
-    //THIS IS A CHANGE BY TAKAO
 }
